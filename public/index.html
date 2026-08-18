@@ -3,31 +3,344 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>System Status</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f5f7fa;
+            color: #1f2937;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .header h1 {
+            margin: 0 0 16px;
+            font-size: 32px;
+            font-weight: 600;
+        }
+
+        .overall {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.08);
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .overall-status {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .overall-message {
+            color: #6b7280;
+            font-size: 15px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .up {
+            background: #22c55e;
+        }
+
+        .down {
+            background: #ef4444;
+        }
+
+        .unknown {
+            background: #f59e0b;
+        }
+
+        .services {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.08);
+            overflow: hidden;
+        }
+
+        .services-title {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .service {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 24px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .service:last-child {
+            border-bottom: none;
+        }
+
+        .service-name {
+            font-weight: 500;
+        }
+
+        .service-status {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .footer {
+            text-align: center;
+            color: #6b7280;
+            margin-top: 22px;
+            font-size: 13px;
+        }
+
+        .error {
+            color: #b91c1c;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px 12px;
+            }
+
+            .header h1 {
+                font-size: 26px;
+            }
+
+            .service {
+                padding: 16px;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-    <h1>System Status</h1>
+<div class="container">
 
-    <p>UptimeRobot Status Dashboard</p>
+    <div class="header">
+        <h1>System Status</h1>
+    </div>
 
-    <p id="status">Testing API...</p>
+    <div class="overall">
+        <div id="overallStatus" class="overall-status">
+            Loading system status...
+        </div>
 
-    <script>
-        fetch("/api/status")
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById("status").innerText =
-                    "API connection successful.";
-                console.log(data);
-            })
-            .catch(error => {
-                document.getElementById("status").innerText =
-                    "API connection failed.";
-                console.error(error);
+        <div id="overallMessage" class="overall-message">
+            Checking monitored services.
+        </div>
+    </div>
+
+    <div class="services">
+
+        <div class="services-title">
+            Services
+        </div>
+
+        <div id="services">
+        </div>
+
+    </div>
+
+    <div class="footer">
+        <span id="lastUpdated">Waiting for update...</span>
+        <br>
+        Status refreshes automatically every 60 seconds.
+    </div>
+
+</div>
+
+<script>
+
+    const nameMap = {
+        "wd5.myworkday.com": "Workday",
+        "firstdayhosting.sharepoint.com/": "SharePoint",
+        "humantraffickinghotline.org": "Human Trafficking Hotline",
+        "nationalemr.webeocasp.com/nationalemr": "WebEOC - NEMR",
+        "app.workato.com": "Workato",
+        "nationalemr.gpsgate.com": "GPSGate - NEMR",
+        "compassunited-svi.gpsgate.com": "GPSGate - Compass",
+        "pointclickcare.com": "PointClickCare",
+        "firstdayfoundation.acumatica.com/": "Acumatica",
+        "status.acumatica.com/": "Acumatica Status",
+        "firstdayfoundation.harvestapp.com": "Harvest",
+        "bcfshhsrsd.my.salesforce.com": "Salesforce"
+    };
+
+
+    function getFriendlyName(name) {
+        return nameMap[name] || name;
+    }
+
+
+    async function loadStatus() {
+
+        const overallStatus =
+            document.getElementById("overallStatus");
+
+        const overallMessage =
+            document.getElementById("overallMessage");
+
+        const servicesContainer =
+            document.getElementById("services");
+
+        const lastUpdated =
+            document.getElementById("lastUpdated");
+
+        try {
+
+            const response =
+                await fetch("/api/status", {
+                    cache: "no-store"
+                });
+
+            if (!response.ok) {
+                throw new Error(
+                    `API returned ${response.status}`
+                );
+            }
+
+            const data = await response.json();
+
+            servicesContainer.innerHTML = "";
+
+            if (data.overallStatus === "UP") {
+
+                overallStatus.innerHTML =
+                    '<span class="status-dot up"></span>' +
+                    'All Systems Operational';
+
+                overallMessage.textContent =
+                    "All monitored services are operating normally.";
+
+            } else {
+
+                overallStatus.innerHTML =
+                    '<span class="status-dot down"></span>' +
+                    'Service Disruption Detected';
+
+                overallMessage.textContent =
+                    "One or more monitored services require attention.";
+            }
+
+
+            data.monitors.forEach(monitor => {
+
+                const row =
+                    document.createElement("div");
+
+                row.className = "service";
+
+
+                const name =
+                    document.createElement("div");
+
+                name.className = "service-name";
+
+                name.textContent =
+                    getFriendlyName(monitor.name);
+
+
+                const status =
+                    document.createElement("div");
+
+                status.className =
+                    "service-status";
+
+
+                let statusClass = "unknown";
+                let statusText = monitor.status;
+
+                if (monitor.status === "UP") {
+                    statusClass = "up";
+                    statusText = "Operational";
+                }
+
+                if (
+                    monitor.status === "DOWN" ||
+                    monitor.status === "SEEMS_DOWN"
+                ) {
+                    statusClass = "down";
+                    statusText = "Service Disruption";
+                }
+
+
+                status.innerHTML =
+                    `<span class="status-dot ${statusClass}"></span>${statusText}`;
+
+
+                row.appendChild(name);
+                row.appendChild(status);
+
+                servicesContainer.appendChild(row);
+
             });
-    </script>
+
+
+            const updated =
+                new Date(data.updated);
+
+            lastUpdated.textContent =
+                "Last checked: " +
+                updated.toLocaleString();
+
+        }
+
+        catch (error) {
+
+            console.error(error);
+
+            overallStatus.innerHTML =
+                '<span class="status-dot unknown"></span>' +
+                'Unable to Retrieve Status';
+
+            overallMessage.textContent =
+                "The monitoring service could not be reached.";
+
+            overallMessage.classList.add("error");
+
+            servicesContainer.innerHTML = "";
+
+            lastUpdated.textContent =
+                "Status unavailable.";
+        }
+    }
+
+
+    loadStatus();
+
+    setInterval(
+        loadStatus,
+        60000
+    );
+
+</script>
 
 </body>
 </html>
