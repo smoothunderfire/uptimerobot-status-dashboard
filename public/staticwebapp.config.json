@@ -1,0 +1,5 @@
+{
+  "globalHeaders": {
+    "Content-Security-Policy": "frame-ancestors 'self' https://*.sharepoint.com https://teams.microsoft.com https://*.teams.microsoft.com https://*.cloud.microsoft;"
+  }
+}
