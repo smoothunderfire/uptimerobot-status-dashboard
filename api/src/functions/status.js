@@ -7,13 +7,14 @@ app.http("status", {
 
     handler: async (request, context) => {
         try {
+
             const token = process.env.UPTIMEROBOT_API_TOKEN;
 
             if (!token) {
                 return {
                     status: 500,
                     jsonBody: {
-                        error: "UPTIMEROBOT_API_TOKEN is not configured."
+                        error: "API configuration error."
                     }
                 };
             }
@@ -30,41 +31,64 @@ app.http("status", {
             );
 
             if (!response.ok) {
-                const body = await response.text();
 
                 context.error(
-                    `UptimeRobot returned HTTP ${response.status}: ${body}`
+                    `UptimeRobot returned ${response.status}`
                 );
 
                 return {
                     status: 502,
                     jsonBody: {
-                        error: "Unable to retrieve UptimeRobot monitors.",
-                        upstreamStatus: response.status
+                        error: "Unable to retrieve system status."
                     }
                 };
             }
 
-            const data = await response.json();
+            const result = await response.json();
+
+            const monitors = result.data
+                .map(monitor => ({
+                    name: monitor.friendlyName,
+                    status: monitor.status
+                }))
+                .sort((a, b) =>
+                    a.name.localeCompare(b.name)
+                );
+
+            const allUp = monitors.every(
+                monitor => monitor.status === "UP"
+            );
 
             return {
                 status: 200,
+
                 headers: {
-                    "Cache-Control": "no-store"
+                    "Cache-Control":
+                        "public, max-age=30"
                 },
+
                 jsonBody: {
-                    updated: new Date().toISOString(),
-                    data: data
+                    updated:
+                        new Date().toISOString(),
+
+                    overallStatus:
+                        allUp ? "UP" : "ISSUE",
+
+                    monitors: monitors
                 }
             };
+
         }
         catch (error) {
+
             context.error(error);
 
             return {
                 status: 500,
+
                 jsonBody: {
-                    error: "Unexpected error retrieving status."
+                    error:
+                        "Unable to retrieve system status."
                 }
             };
         }
